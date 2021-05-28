@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>车牌图片识别Demo</title>
+  <style>
+    *{
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    .entry .input_file{
+      display: inline-block;
+      padding: 8px 24px;
+      border-radius: 8px;
+      border: 1px solid #424242;
+      font-size: 16px;
+      color: #424242;
+      cursor: pointer;
+    }
+    .entry .input_file:hover{
+      border: 1px solid #bdc3c7;
+      background-color: #ecf0f1;
+    }
+    .hidden{
+      display: none;
+    }
+    .row{
+      width: 100%;
+    }
+    h1,h2 {
+      padding: 12px 0;
+    }
+    .col{
+      box-sizing: border-box;
+      width: 50%;
+      padding: 16px;
+      float: left;
+    }
+    .title{
+      font-size: 18px;
+    }
+  </style>
+
+</head>
+<body>
+  <h2>车牌图片识别demo</h2>
+  <div class="entry">
+    <div class="input_file" onclick="selectImg()">请选择图片</div>
+    <input class="hidden" type="file" name="file" id="file"" accept=".png,.jpg,.jpeg,.gif,.bmp,.jfif" onchange="submit()">
+  </div>
+  <div class="row">
+    <div class="col col-12">
+      <div class="title">输入图像</div>
+      <div>
+        <img id="inputImg" class="preview">
+      </div>
+    </div>
+    <div class="col col-12">
+      <div class="title">识别结果</div>
+      <canvas id="resultBox" ></canvas>
+    </div>
+  </div>
+
+  <script>
+    let fileInput = document.getElementById("file");
+    let canvas = document.getElementById("resultBox")
+    let ctx = canvas.getContext('2d')
+
+    function selectImg(){
+      file.click()
+    }
+    function submit(){
+      let file = fileInput.files[0]
+      let inputImg = document.getElementById("inputImg")
+      inputImg.src = window.URL.createObjectURL(file)
+      inputImg.onload = function(){
+        // console.log(inputImg.width,inputImg.height)
+        canvas.width = inputImg.width > 450 ? inputImg.width: 450
+        canvas.height = inputImg.height+200
+      }
+      let formData = new FormData();
+      formData.append("file", file);
+      fetch("http://10.64.93.223:5001", {
+        method: "POST",
+        body: formData,
+      })
+        .then((response) => response.json())
+        .catch((error) => console.error("Error:", error))
+        .then((response) => {
+          showResult(response.resultList)
+        });
+    }
+
+    function showResult(param){
+      param.forEach(item => {
+        // console.log("item:", item)
+        // 绘制原图
+        ctx.drawImage(inputImg, 0, 0, item[3][1], item[3][0])
+
+        // 计算识别框宽高
+        let w = item[2][2] - item[2][0]
+        let h = item[2][3] - item[2][1]
+        // 绘制识别框
+        ctx.beginPath();
+        ctx.lineWidth="3";
+        ctx.strokeStyle="red";
+        ctx.rect(item[2][0], item[2][1], w, h);
+        ctx.stroke();
+
+        // 绘制识别结果
+        ctx.fillStyle="#0049ab";
+        ctx.fillRect(220, 8 + item[3][0], 220, 72);
+        ctx.stroke();
+        ctx.font="20px Verdana";
+        ctx.fillStyle="white";
+        ctx.fillText(`识别结果：${item[0]}`, 228 , 32 + item[3][0], 220);
+        ctx.fillText(`置信度：${(item[1]*100).toFixed(2)}%`, 228 , 68 + item[3][0], 220);
+
+        // 绘制识别车牌区域
+        let img = new Image()
+        img.src = "data:image/png;base64," + item[4]
+        img.onload = function () {
+          ctx.drawImage(img, 0, item[3][0]+8, 207, 72)
+        }
+      })
+    }
+  </script>
+</body>
+</html>
